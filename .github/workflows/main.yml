@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ANDROIDSDK: ${{ runner.home }}/android-sdk
+      ANDROIDSDK: $HOME/android-sdk
       ANDROIDNDKVER: "25c"
       APP_NAME: VarnaBanker
       APP_VERSION: 1.0
@@ -54,10 +54,9 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y python3-pip git zip unzip openjdk-17-jdk wget curl
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install buildozer cython virtualenv
 
-      # Export Android / Java env vars for subsequent steps
       - name: Export Android and Java env vars
         run: |
           echo "ANDROID_SDK_ROOT=${ANDROIDSDK}" >> $GITHUB_ENV
@@ -72,11 +71,9 @@ jobs:
           mkdir -p $ANDROIDSDK/cmdline-tools
           cd $ANDROIDSDK/cmdline-tools
 
-          # Download command-line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
           unzip -o tools.zip
 
-          # Detect inner folder (handles any ZIP layout)
           INNER_DIR=$(find . -maxdepth 1 -type d -name "cmdline-tools*" | head -n1)
           if [ -z "$INNER_DIR" ]; then
               echo "No inner cmdline-tools folder found!"
@@ -84,27 +81,20 @@ jobs:
               exit 1
           fi
 
-          # Move contents to 'latest' layout expected by sdkmanager
           mkdir -p latest
           mv "$INNER_DIR"/* latest/ || true
 
-          # Ensure sdkmanager exists
           if [ ! -f "$ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager" ]; then
               echo "sdkmanager still not found!"
               ls -R $ANDROIDSDK/cmdline-tools/latest
               exit 1
           fi
 
-          # Accept licenses and install platform tools + build-tools
           yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK --licenses
 
           yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK \
             "platforms;android-33" "build-tools;33.0.2" "platform-tools"
 
-          # (Optional) If you require an NDK version for p4a, install here, e.g.:
-          # yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK "ndk;21.4.7075529"
-
-          # Verify AIDL exists (part of build-tools)
           find $ANDROIDSDK/build-tools -name aidl || (echo "AIDL not found" && exit 1)
 
       - name: Clean previous Buildozer builds
@@ -115,7 +105,6 @@ jobs:
       - name: Build APK (verbose)
         run: |
           set -o pipefail
-          # verbose output helps debugging failures
           buildozer -v android debug 2>&1 | tee buildozer-run.log || (echo "Buildozer failed, printing build logs..." && \
             if [ -d "~/.buildozer/android/platform/build-arm64-v8a/dists" ]; then \
               cat ~/.buildozer/android/platform/build-arm64-v8a/dists/*/build.log || true; \
