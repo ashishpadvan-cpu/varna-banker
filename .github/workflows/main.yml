@@ -11,29 +11,20 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ANDROIDSDK: $HOME/android-sdk
+      ANDROIDSDK: ${{ runner.home }}/android-sdk
       ANDROIDNDKVER: "25c"
       APP_NAME: VarnaBanker
       APP_VERSION: 1.0
 
     steps:
-      # --------------------------
-      # Checkout repository
-      # --------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --------------------------
-      # Setup Python
-      # --------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # --------------------------
-      # Cache Buildozer and pip
-      # --------------------------
       - name: Cache Buildozer and pip
         uses: actions/cache@v3
         with:
@@ -44,9 +35,6 @@ jobs:
           restore-keys: |
             buildozer-cache-${{ runner.os }}-
 
-      # --------------------------
-      # Cache Gradle
-      # --------------------------
       - name: Cache Gradle
         uses: actions/cache@v3
         with:
@@ -54,9 +42,6 @@ jobs:
           key: gradle-cache-${{ runner.os }}-v1
           restore-keys: gradle-cache-${{ runner.os }}-
 
-      # --------------------------
-      # Cache Android SDK
-      # --------------------------
       - name: Cache Android SDK
         uses: actions/cache@v3
         id: cache-android-sdk
@@ -65,28 +50,31 @@ jobs:
           key: android-sdk-cache-${{ runner.os }}-v1
           restore-keys: android-sdk-cache-${{ runner.os }}-
 
-      # --------------------------
-      # Install system dependencies
-      # --------------------------
       - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y python3-pip git zip unzip openjdk-17-jdk wget curl
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install buildozer cython virtualenv
 
-      # --------------------------
-      # Install Android SDK & Build Tools (if cache missed)
-      # --------------------------
-      - name: Install Android SDK and Build Tools
+      # Export Android / Java env vars for subsequent steps
+      - name: Export Android and Java env vars
+        run: |
+          echo "ANDROID_SDK_ROOT=${ANDROIDSDK}" >> $GITHUB_ENV
+          echo "ANDROID_HOME=${ANDROIDSDK}" >> $GITHUB_ENV
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "PATH=${ANDROIDSDK}/cmdline-tools/latest/bin:${ANDROIDSDK}/platform-tools:${PATH}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Install Android SDK and Build Tools (if cache missed)
         if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
           mkdir -p $ANDROIDSDK/cmdline-tools
           cd $ANDROIDSDK/cmdline-tools
 
           # Download command-line tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip -o commandlinetools-linux-9477386_latest.zip
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+          unzip -o tools.zip
 
           # Detect inner folder (handles any ZIP layout)
           INNER_DIR=$(find . -maxdepth 1 -type d -name "cmdline-tools*" | head -n1)
@@ -96,56 +84,59 @@ jobs:
               exit 1
           fi
 
-          # Move contents to 'latest'
+          # Move contents to 'latest' layout expected by sdkmanager
           mkdir -p latest
-          mv "$INNER_DIR"/* latest/
+          mv "$INNER_DIR"/* latest/ || true
 
-          # Verify sdkmanager exists
+          # Ensure sdkmanager exists
           if [ ! -f "$ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager" ]; then
               echo "sdkmanager still not found!"
               ls -R $ANDROIDSDK/cmdline-tools/latest
               exit 1
           fi
 
-          # Accept licenses
+          # Accept licenses and install platform tools + build-tools
           yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK --licenses
 
-          # Install required SDK components
           yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK \
             "platforms;android-33" "build-tools;33.0.2" "platform-tools"
 
-          # Verify aidl exists
+          # (Optional) If you require an NDK version for p4a, install here, e.g.:
+          # yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK "ndk;21.4.7075529"
+
+          # Verify AIDL exists (part of build-tools)
           find $ANDROIDSDK/build-tools -name aidl || (echo "AIDL not found" && exit 1)
 
-      # --------------------------
-      # Clean previous Buildozer builds
-      # --------------------------
       - name: Clean previous Buildozer builds
         run: |
           buildozer android clean || true
           rm -rf ~/.buildozer/android/platform/python-for-android || true
 
-      # --------------------------
-      # Build APK
-      # --------------------------
-      - name: Build APK
+      - name: Build APK (verbose)
         run: |
-          buildozer android debug || (cat ~/.buildozer/android/platform/build-arm64-v8a/dists/*/build.log && exit 1)
+          set -o pipefail
+          # verbose output helps debugging failures
+          buildozer -v android debug 2>&1 | tee buildozer-run.log || (echo "Buildozer failed, printing build logs..." && \
+            if [ -d "~/.buildozer/android/platform/build-arm64-v8a/dists" ]; then \
+              cat ~/.buildozer/android/platform/build-arm64-v8a/dists/*/build.log || true; \
+            fi; \
+            tail -n 500 buildozer-run.log; \
+            exit 1)
+        shell: bash
 
-      # --------------------------
-      # Rename APK with version
-      # --------------------------
       - name: Rename APK with version
         run: |
           APK_SRC=$(find bin/ -name "*.apk" | head -n1)
+          if [ -z "$APK_SRC" ]; then
+            echo "No APK produced in bin/"
+            ls -R bin || true
+            exit 1
+          fi
           APK_DST="bin/${APP_NAME}-v${APP_VERSION}.apk"
           mv "$APK_SRC" "$APK_DST"
           echo "APK renamed to $APK_DST"
         shell: bash
 
-      # --------------------------
-      # Upload APK artifact
-      # --------------------------
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
