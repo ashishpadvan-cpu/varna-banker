@@ -32,7 +32,7 @@ jobs:
           python-version: "3.10"
 
       # --------------------------
-      # Cache Buildozer and pip
+      # Cache Buildozer, pip
       # --------------------------
       - name: Cache Buildozer and pip
         uses: actions/cache@v3
@@ -45,16 +45,6 @@ jobs:
             buildozer-cache-${{ runner.os }}-
 
       # --------------------------
-      # Install system dependencies
-      # --------------------------
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y python3-pip git zip unzip openjdk-17-jdk wget curl
-          pip install --upgrade pip
-          pip install buildozer cython virtualenv
-
-      # --------------------------
       # Cache Gradle
       # --------------------------
       - name: Cache Gradle
@@ -65,20 +55,48 @@ jobs:
           restore-keys: gradle-cache-${{ runner.os }}-
 
       # --------------------------
-      # Install Android SDK and Build Tools
+      # Cache Android SDK
+      # --------------------------
+      - name: Cache Android SDK
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.ANDROIDSDK }}
+          key: android-sdk-cache-${{ runner.os }}-v1
+          restore-keys: android-sdk-cache-${{ runner.os }}-
+
+      # --------------------------
+      # Install system dependencies
+      # --------------------------
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip git zip unzip openjdk-17-jdk wget curl
+          pip install --upgrade pip
+          pip install buildozer cython virtualenv
+
+      # --------------------------
+      # Install Android SDK & Build Tools (only if cache missed)
       # --------------------------
       - name: Install Android SDK and Build Tools
+        if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
           mkdir -p $ANDROIDSDK/cmdline-tools
           cd $ANDROIDSDK/cmdline-tools
 
-          # Download Android command-line tools
+          # Download command-line tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -o commandlinetools-linux-9477386_latest.zip
 
-          # Move the inner cmdline-tools folder into 'latest'
+          # Move inner folder to 'latest' (fix folder structure)
           mkdir -p latest
           mv cmdline-tools/* latest/
+
+          # Verify sdkmanager exists
+          if [ ! -f "$ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "sdkmanager not found!"
+            ls -R $ANDROIDSDK/cmdline-tools/latest
+            exit 1
+          fi
 
           # Accept licenses
           yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK --licenses
