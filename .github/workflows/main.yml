@@ -33,9 +33,6 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y python3-pip git zip unzip openjdk-17-jdk wget curl
-
-      - name: Install Buildozer
-        run: |
           pip install --upgrade pip
           pip install buildozer cython virtualenv
 
@@ -46,12 +43,26 @@ jobs:
           key: gradle-cache-${{ runner.os }}-v1
           restore-keys: gradle-cache-${{ runner.os }}-
 
+      # ✅ Added section: Install Android SDK & Build Tools
+      - name: Install Android SDK and Build Tools
+        run: |
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -o commandlinetools-linux-9477386_latest.zip -d $HOME/android-sdk/cmdline-tools/latest
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
+            "platforms;android-33" "build-tools;33.0.2" "platform-tools"
+
       - name: Clean previous Buildozer builds
         run: |
           buildozer android clean || true
           rm -rf ~/.buildozer/android/platform/python-for-android || true
 
       - name: Build APK
+        env:
+          ANDROIDSDK: $HOME/android-sdk
+          ANDROIDNDKVER: "25c"
         run: |
           buildozer android debug || (cat ~/.buildozer/android/platform/build-arm64-v8a/dists/*/build.log && exit 1)
 
