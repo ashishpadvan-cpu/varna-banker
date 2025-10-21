@@ -32,7 +32,7 @@ jobs:
           python-version: "3.10"
 
       # --------------------------
-      # Cache Buildozer, pip
+      # Cache Buildozer and pip
       # --------------------------
       - name: Cache Buildozer and pip
         uses: actions/cache@v3
@@ -59,6 +59,7 @@ jobs:
       # --------------------------
       - name: Cache Android SDK
         uses: actions/cache@v3
+        id: cache-android-sdk
         with:
           path: ${{ env.ANDROIDSDK }}
           key: android-sdk-cache-${{ runner.os }}-v1
@@ -75,7 +76,7 @@ jobs:
           pip install buildozer cython virtualenv
 
       # --------------------------
-      # Install Android SDK & Build Tools (only if cache missed)
+      # Install Android SDK & Build Tools (if cache missed)
       # --------------------------
       - name: Install Android SDK and Build Tools
         if: steps.cache-android-sdk.outputs.cache-hit != 'true'
@@ -87,15 +88,23 @@ jobs:
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -o commandlinetools-linux-9477386_latest.zip
 
-          # Move inner folder to 'latest' (fix folder structure)
+          # Detect inner folder (handles any ZIP layout)
+          INNER_DIR=$(find . -maxdepth 1 -type d -name "cmdline-tools*" | head -n1)
+          if [ -z "$INNER_DIR" ]; then
+              echo "No inner cmdline-tools folder found!"
+              ls -R
+              exit 1
+          fi
+
+          # Move contents to 'latest'
           mkdir -p latest
-          mv cmdline-tools/* latest/
+          mv "$INNER_DIR"/* latest/
 
           # Verify sdkmanager exists
           if [ ! -f "$ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager" ]; then
-            echo "sdkmanager not found!"
-            ls -R $ANDROIDSDK/cmdline-tools/latest
-            exit 1
+              echo "sdkmanager still not found!"
+              ls -R $ANDROIDSDK/cmdline-tools/latest
+              exit 1
           fi
 
           # Accept licenses
