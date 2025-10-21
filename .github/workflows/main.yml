@@ -46,6 +46,13 @@ jobs:
           key: android-sdk-cache-${{ runner.os }}-v1
           restore-keys: android-sdk-cache-${{ runner.os }}-
 
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: gradle-cache-${{ runner.os }}-v1
+          restore-keys: gradle-cache-${{ runner.os }}-
+
       - name: Install Android SDK and Build Tools
         run: |
           mkdir -p $HOME/android-sdk
@@ -56,7 +63,11 @@ jobs:
             unzip cmdline-tools.zip -d cmdline-tools
             mv cmdline-tools/cmdline-tools cmdline-tools/latest
           fi
-          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.2" "ndk;25.2.9519653" || true
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.2.9519653" || true
 
       - name: Set Android environment variables
         run: |
@@ -72,9 +83,13 @@ jobs:
           which aidl
           aidl --help || true
 
+      - name: Clean previous Buildozer builds (force p4a download)
+        run: |
+          buildozer android clean || true
+          rm -rf ~/.buildozer/android/platform/python-for-android || true
+
       - name: Build APK
         run: |
-          buildozer android clean
           buildozer android debug || (cat ~/.buildozer/android/platform/build-arm64-v8a/dists/*/build.log && exit 1)
 
       - name: Upload APK artifact
