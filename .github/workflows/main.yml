@@ -18,7 +18,7 @@ jobs:
 
     steps:
       # --------------------------
-      # Checkout code
+      # Checkout repository
       # --------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
           python-version: "3.10"
 
       # --------------------------
-      # Cache Buildozer, pip
+      # Cache Buildozer and pip
       # --------------------------
       - name: Cache Buildozer and pip
         uses: actions/cache@v3
@@ -65,25 +65,25 @@ jobs:
           restore-keys: gradle-cache-${{ runner.os }}-
 
       # --------------------------
-      # Install Android SDK, NDK, Build Tools
+      # Install Android SDK and Build Tools
       # --------------------------
       - name: Install Android SDK and Build Tools
         run: |
           mkdir -p $ANDROIDSDK/cmdline-tools
           cd $ANDROIDSDK/cmdline-tools
 
-          # Download command-line tools
+          # Download Android command-line tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -o commandlinetools-linux-9477386_latest.zip
 
-          # Fix folder structure for sdkmanager
-          if [ -d "cmdline-tools" ]; then
-            mkdir -p latest
-            mv cmdline-tools/* latest/
-          fi
+          # Move the inner cmdline-tools folder into 'latest'
+          mkdir -p latest
+          mv cmdline-tools/* latest/
 
-          # Accept licenses and install required tools
+          # Accept licenses
           yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK --licenses
+
+          # Install required SDK components
           yes | $ANDROIDSDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROIDSDK \
             "platforms;android-33" "build-tools;33.0.2" "platform-tools"
 
@@ -91,7 +91,7 @@ jobs:
           find $ANDROIDSDK/build-tools -name aidl || (echo "AIDL not found" && exit 1)
 
       # --------------------------
-      # Clean previous builds
+      # Clean previous Buildozer builds
       # --------------------------
       - name: Clean previous Buildozer builds
         run: |
@@ -106,9 +106,9 @@ jobs:
           buildozer android debug || (cat ~/.buildozer/android/platform/build-arm64-v8a/dists/*/build.log && exit 1)
 
       # --------------------------
-      # Rename APK with version and upload
+      # Rename APK with version
       # --------------------------
-      - name: Upload APK artifact
+      - name: Rename APK with version
         run: |
           APK_SRC=$(find bin/ -name "*.apk" | head -n1)
           APK_DST="bin/${APP_NAME}-v${APP_VERSION}.apk"
@@ -116,6 +116,9 @@ jobs:
           echo "APK renamed to $APK_DST"
         shell: bash
 
+      # --------------------------
+      # Upload APK artifact
+      # --------------------------
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
