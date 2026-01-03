@@ -3,12 +3,10 @@ name: Build Kivy APK
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -19,52 +17,37 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install system dependencies
+      # ✅ Official Android setup (this fixes licenses)
+      - name: Setup Android SDK
+        uses: reactivecircus/setup-android@v3
+        with:
+          api-level: 33
+          build-tools: 36.1.0
+          ndk: 25.1.8937393
+
+      - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             python3-dev build-essential git \
-            zlib1g-dev openjdk-11-jdk unzip zip \
+            zlib1g-dev openjdk-11-jdk \
             libffi-dev libssl-dev
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
 
       - name: Install Buildozer
         run: |
-          pip install --upgrade buildozer cython
+          pip install buildozer cython
 
-      # ---------- ANDROID SDK ----------
-      - name: Install Android SDK
-        run: |
-          mkdir -p /home/runner/android-sdk
-          cd /home/runner/android-sdk
-
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-          unzip -q tools.zip -d temp
-
-          mkdir -p cmdline-tools/latest
-          mv temp/cmdline-tools/* cmdline-tools/latest
-          rm -rf temp tools.zip
-
-          SDKMANAGER=/home/runner/android-sdk/cmdline-tools/latest/bin/sdkmanager
-          yes | $SDKMANAGER --licenses || true
-
-          $SDKMANAGER \
-            "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;33.0.2" \
-            "ndk;25.1.8937393"
-
-      # ---------- FORCE CLEAN ----------
-      - name: Remove Buildozer cache
+      # ✅ CLEAN CACHE (once)
+      - name: Clear Buildozer cache
         run: |
           rm -rf ~/.buildozer
 
-      # ---------- BUILD (THIS IS THE KEY) ----------
+      # ✅ BUILD (no clean, no pinning)
       - name: Build APK
         env:
-          ANDROIDSDK: /home/runner/android-sdk
-          ANDROID_HOME: /home/runner/android-sdk
-          ANDROID_SDK_ROOT: /home/runner/android-sdk
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
           JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
         run: |
           buildozer android debug
