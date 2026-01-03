@@ -1,4 +1,3 @@
-# .github/workflows/main.yml
 name: Build Kivy APK
 
 on:
@@ -10,19 +9,22 @@ on:
 
 jobs:
   build-apk:
-    name: Build APK
+    name: Build Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
+      # 1️⃣ Checkout Code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Python
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
+      # 3️⃣ Cache pip
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -31,48 +33,69 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      # 4️⃣ Install Linux system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-dev build-essential git zlib1g-dev openjdk-11-jdk unzip zip
-          # Ensure JAVA_HOME is set for build tools
-          echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" | sudo tee -a /etc/environment
-          source /etc/environment
-          python3 -m pip install --upgrade pip
+          sudo apt-get install -y \
+            python3-dev \
+            build-essential \
+            git \
+            zlib1g-dev \
+            openjdk-11-jdk \
+            unzip \
+            zip \
+            libffi-dev \
+            libssl-dev
+          
+          echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
+          python -m pip install --upgrade pip
 
+      # 5️⃣ Install Python dependencies
       - name: Install Python build dependencies
         run: |
-          pip install buildozer cython
+          pip install --upgrade buildozer cython
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: List project files (debug)
-        run: ls -la || true
+      # 6️⃣ Install Android SDK + NDK
+      - name: Install Android SDK & NDK
+        run: |
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
 
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
+          unzip cmdline.zip
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest || true
+
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.1.8937393"
+
+      # 7️⃣ Build APK
       - name: Build APK with Buildozer
-        working-directory: .
         env:
           JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
         run: |
-          # If you need Android SDK/NDK setup, add commands here.
-          # Example placeholders (uncomment and adapt if you configure SDK/NDK):
-          # sudo apt-get install -y wget
-          # wget https://dl.google.com/android/repository/commandlinetools-linux-*.zip -O cmdline.zip
-          # unzip cmdline.zip -d $HOME/android-sdk
-          # export ANDROID_HOME=$HOME/android-sdk
-          #
-          # Run Buildozer. This assumes you have a valid buildozer.spec in repo root.
-          buildozer android debug || (echo "Buildozer failed — see logs above" && exit 1)
+          buildozer android debug
 
-      - name: List bin folder (debug)
-        run: ls -R bin || true
+      # 8️⃣ List output APK (debug)
+      - name: List APK output
+        run: |
+          find . -name "*.apk"
 
-      - name: Upload APK artifact
-        # Use v4 (v3 is deprecated)
+      # 9️⃣ Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: VarnaBanker-APK
-          # Match common buildozer output locations; upload all APKs under bin/
           path: |
             bin/**/*.apk
-            **/bin/**/*.apk
-            dist/*.apk
