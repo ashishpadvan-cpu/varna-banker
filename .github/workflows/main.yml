@@ -58,19 +58,12 @@ jobs:
             "build-tools;33.0.2" \
             "ndk;25.1.8937393"
 
-      # -------- REMOVE BUILDOZER SDK CACHE --------
+      # -------- REMOVE BUILDOZER CACHE --------
       - name: Clear Buildozer cache
         run: |
           rm -rf ~/.buildozer
 
-      # -------- CLEAN BUILD --------
-      - name: Buildozer clean
-        env:
-          ANDROIDSDK: /home/runner/android-sdk
-        run: |
-          buildozer android clean
-
-      # -------- BUILD APK (FORCED SDK) --------
+      # -------- BUILD APK (NO CLEAN!) --------
       - name: Build APK
         env:
           JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
