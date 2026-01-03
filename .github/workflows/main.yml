@@ -19,13 +19,15 @@ jobs:
         with:
           python-version: "3.10"
 
-      # ✅ OFFICIAL ANDROID SDK SETUP (FIXES LICENSE ISSUE)
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: 33
-          build-tools: 36.1.0
+          build-tools: 34.0.0
           ndk: 25.1.8937393
+
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses
 
       - name: Install system dependencies
         run: |
@@ -37,22 +39,17 @@ jobs:
           python -m pip install --upgrade pip
 
       - name: Install Buildozer
-        run: |
-          pip install --upgrade buildozer cython
+        run: pip install --upgrade buildozer cython
 
-      # Clean cache once (important)
       - name: Clear Buildozer cache
-        run: |
-          rm -rf ~/.buildozer
+        run: rm -rf ~/.buildozer
 
-      # 🔥 BUILD APK (NO PINNING, NO MANUAL SDK)
       - name: Build APK
         env:
           JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
-        run: |
-          buildozer android debug
+        run: buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
