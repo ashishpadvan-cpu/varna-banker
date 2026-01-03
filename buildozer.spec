@@ -1,82 +1,65 @@
-[app]
+name: Build Android APK
 
-# (str) Title of your application
-title = Varna Banker
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
-# (str) Package name
-package.name = varna_banker
+jobs:
+  build:
+    runs-on: ubuntu-24.04  # Using a standard Ubuntu runner
 
-# (str) Package domain (needed for android/ios packaging)
-package.domain = org.varnabanker
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-# (str) Source code where the main.py live
-source.dir = .
+      # 1. Setup Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-# (list) Source files to include (let empty to include all the files)
-source.include_exts = py,png,jpg,kv,atlas,json
+      # 2. Install System Dependencies required by Kivy/Buildozer
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libffi-dev \
+            libssl-dev \
+            autoconf \
+            libtool \
+            openjdk-17-jdk \
+            zip \
+            unzip
 
-# (list) Application requirements
-# comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,pillow,android
+      # 3. Install Buildozer and Cython
+      - name: Install Buildozer
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython
 
-# (str) Custom source folders for requirements
-# Sets custom source for any requirements with recipes
-# requirements.source.kivy = ../../kivy
+      # 4. Run Buildozer
+      # We pipe "y" just in case, though accept_sdk_license in spec should handle it
+      - name: Build with Buildozer
+        run: |
+          yes | buildozer android debug
 
-# (str) Presplash of the application
-#presplash.filename = %(source.dir)s/data/presplash.png
-
-# (str) Icon of the application
-#icon.filename = %(source.dir)s/data/icon.png
-
-# (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
-orientation = portrait
-
-# (bool) Indicate if the application should be fullscreen or not
-fullscreen = 0
-
-# (list) Permissions
-android.permissions = CAMERA, READ_MEDIA_IMAGES, INTERNET
-
-# (int) Target Android API, should be as high as possible.
-android.api = 33
-
-# (int) Minimum API your APK will support.
-android.minapi = 21
-
-# (int) Android SDK version to use
-# android.sdk = 20
-
-# (str) Android NDK version to use
-# android.ndk = 23b
-
-# (bool) Use --private data storage (True) or --dir public storage (False)
-android.private_storage = True
-
-# (bool) Skip byte compile for .py files
-android.skip_byte_compile = False
-
-# (str) The format used to package the app for release mode (aab or apk or aar).
-android.release_artifact = apk
-
-# (str) The format used to package the app for debug mode (apk or aar).
-android.debug_artifact = apk
-
-# -----------------------------------------------------------------------------
-# AGREEMENTS AND LICENSES (CRITICAL FIX FOR CI/CD)
-# -----------------------------------------------------------------------------
-android.accept_sdk_license = True
-
-# (str) The Android arch to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
-android.archs = arm64-v8a, armeabi-v7a
-
-# (bool) enable/disable waithome presplash
-android.presplash_color = #FFFFFF
-
-[buildozer]
-
-# (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
-log_level = 2
-
-# (int) Display warning if buildozer is run as root (0 = False, 1 = True)
-warn_on_root = 0
+      # 5. Upload the resulting APK
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: varna-banker-apk
+          path: bin/*.apk
