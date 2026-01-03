@@ -57,17 +57,23 @@ jobs:
           pip install --upgrade buildozer cython
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # 6️⃣ Install Android SDK & NDK (FIXED)
+      # 6️⃣ Install Android SDK & NDK (FINAL FIX)
       - name: Install Android SDK & NDK
         run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
+          mkdir -p $HOME/android-sdk
           cd $HOME/android-sdk
 
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
-          unzip -q cmdline.zip
 
-          # Correct folder structure
-          mv cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          # Extract to temp directory
+          unzip -q cmdline.zip -d cmdline-temp
+
+          # Create proper directory structure
+          mkdir -p $HOME/android-sdk/cmdline-tools/latest
+          mv cmdline-temp/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest
+
+          # Cleanup
+          rm -rf cmdline-temp cmdline.zip
 
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
@@ -80,6 +86,7 @@ jobs:
             "platforms;android-33" \
             "build-tools;33.0.2" \
             "ndk;25.1.8937393"
+
 
       # 7️⃣ Build APK with Buildozer
       - name: Build APK with Buildozer
