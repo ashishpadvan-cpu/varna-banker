@@ -13,11 +13,9 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
@@ -28,28 +26,26 @@ jobs:
             python3-dev build-essential git \
             zlib1g-dev openjdk-11-jdk unzip zip \
             libffi-dev libssl-dev
-          echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
           python -m pip install --upgrade pip
 
-      - name: Install Python build dependencies
+      - name: Install Buildozer
         run: |
           pip install --upgrade buildozer cython
 
-      # -------- ANDROID SDK (ONLY 33.0.2) --------
-      - name: Install Android SDK & NDK
+      # ---------- ANDROID SDK ----------
+      - name: Install Android SDK
         run: |
-          mkdir -p $HOME/android-sdk
-          cd $HOME/android-sdk
+          mkdir -p /home/runner/android-sdk
+          cd /home/runner/android-sdk
 
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
-          unzip -q cmdline.zip -d temp
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+          unzip -q tools.zip -d temp
 
           mkdir -p cmdline-tools/latest
           mv temp/cmdline-tools/* cmdline-tools/latest
-          rm -rf temp cmdline.zip
+          rm -rf temp tools.zip
 
-          SDKMANAGER=$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-
+          SDKMANAGER=/home/runner/android-sdk/cmdline-tools/latest/bin/sdkmanager
           yes | $SDKMANAGER --licenses || true
 
           $SDKMANAGER \
@@ -58,23 +54,22 @@ jobs:
             "build-tools;33.0.2" \
             "ndk;25.1.8937393"
 
-      # -------- REMOVE BUILDOZER CACHE --------
-      - name: Clear Buildozer cache
+      # ---------- FORCE CLEAN ----------
+      - name: Remove Buildozer cache
         run: |
           rm -rf ~/.buildozer
 
-      # -------- BUILD APK (NO CLEAN!) --------
+      # ---------- BUILD (THIS IS THE KEY) ----------
       - name: Build APK
         env:
-          JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
           ANDROIDSDK: /home/runner/android-sdk
           ANDROID_HOME: /home/runner/android-sdk
           ANDROID_SDK_ROOT: /home/runner/android-sdk
+          JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
         run: |
           buildozer android debug
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: VarnaBanker-APK
           path: bin/**/*.apk
