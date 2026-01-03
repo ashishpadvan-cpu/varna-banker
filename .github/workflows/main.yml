@@ -1,58 +1,28 @@
-name: Build Kivy APK
+name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
-          python-version: "3.10"
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 33
-          build-tools: 34.0.0
-          ndk: 25.1.8937393
-
-      - name: Accept Android SDK Licenses
-        run: yes | sdkmanager --licenses
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            python3-dev build-essential git \
-            zlib1g-dev openjdk-11-jdk \
-            libffi-dev libssl-dev
-          python -m pip install --upgrade pip
-
-      - name: Install Buildozer
-        run: pip install --upgrade buildozer cython
-
-      - name: Clear Buildozer cache
-        run: rm -rf ~/.buildozer
-
-      - name: Build APK
-        env:
-          JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
-        run: buildozer android debug
+          command: buildozer android debug
+          buildozer_version: master
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VarnaBanker-APK
-          path: bin/**/*.apk
+          name: varna-banker-apk
+          path: bin/*.apk
