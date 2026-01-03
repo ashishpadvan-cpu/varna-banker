@@ -1,3 +1,3 @@
 this is my first git project
-Author - Ashish Pavan Vasana
+Author - Ashish Pavan Vasana(SE)
 ---End------
