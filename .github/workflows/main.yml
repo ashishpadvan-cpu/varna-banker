@@ -11,48 +11,51 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      # ✅ Official Android setup (this fixes licenses)
-      - name: Setup Android SDK
-        uses: reactivecircus/setup-android@v3
+      # ✅ OFFICIAL ANDROID SDK SETUP (FIXES LICENSE ISSUE)
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
         with:
           api-level: 33
           build-tools: 36.1.0
           ndk: 25.1.8937393
 
-      - name: Install system deps
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             python3-dev build-essential git \
             zlib1g-dev openjdk-11-jdk \
             libffi-dev libssl-dev
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
 
       - name: Install Buildozer
         run: |
-          pip install buildozer cython
+          pip install --upgrade buildozer cython
 
-      # ✅ CLEAN CACHE (once)
+      # Clean cache once (important)
       - name: Clear Buildozer cache
         run: |
           rm -rf ~/.buildozer
 
-      # ✅ BUILD (no clean, no pinning)
+      # 🔥 BUILD APK (NO PINNING, NO MANUAL SDK)
       - name: Build APK
         env:
+          JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
-          JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
         run: |
           buildozer android debug
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: VarnaBanker-APK
           path: bin/**/*.apk
