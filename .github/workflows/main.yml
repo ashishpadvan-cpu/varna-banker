@@ -57,7 +57,7 @@ jobs:
           pip install --upgrade buildozer cython
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # 6️⃣ Install Android SDK & NDK (FINAL FIX)
+      # 6️⃣ Install Android SDK & NDK (ABSOLUTE PATH FIX)
       - name: Install Android SDK & NDK
         run: |
           mkdir -p $HOME/android-sdk
@@ -65,27 +65,33 @@ jobs:
 
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
 
-          # Extract to temp directory
           unzip -q cmdline.zip -d cmdline-temp
 
-          # Create proper directory structure
           mkdir -p $HOME/android-sdk/cmdline-tools/latest
           mv cmdline-temp/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest
 
-          # Cleanup
           rm -rf cmdline-temp cmdline.zip
 
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
 
-          yes | sdkmanager --licenses
-          sdkmanager \
+          SDKMANAGER=$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
+
+          # Accept licenses
+          yes | $SDKMANAGER --licenses
+
+          # Install required packages
+          $SDKMANAGER \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2" \
             "ndk;25.1.8937393"
+
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+
 
 
       # 7️⃣ Build APK with Buildozer
