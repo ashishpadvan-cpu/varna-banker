@@ -9,99 +9,77 @@ on:
 
 jobs:
   build-apk:
-    name: Build Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Python
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      # 3️⃣ Install Linux system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python3-dev \
-            build-essential \
-            git \
-            zlib1g-dev \
-            openjdk-11-jdk \
-            unzip \
-            zip \
-            libffi-dev \
-            libssl-dev
-
+            python3-dev build-essential git \
+            zlib1g-dev openjdk-11-jdk unzip zip \
+            libffi-dev libssl-dev
           echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
           python -m pip install --upgrade pip
 
-      # 4️⃣ Install Python build dependencies
       - name: Install Python build dependencies
         run: |
           pip install --upgrade buildozer cython
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # 5️⃣ Install Android SDK & NDK (ONLY required versions)
+      # -------- ANDROID SDK (ONLY 33.0.2) --------
       - name: Install Android SDK & NDK
         run: |
           mkdir -p $HOME/android-sdk
           cd $HOME/android-sdk
 
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
-          unzip -q cmdline.zip -d cmdline-temp
+          unzip -q cmdline.zip -d temp
 
           mkdir -p cmdline-tools/latest
-          mv cmdline-temp/cmdline-tools/* cmdline-tools/latest
+          mv temp/cmdline-tools/* cmdline-tools/latest
+          rm -rf temp cmdline.zip
 
-          rm -rf cmdline-temp cmdline.zip
+          SDKMANAGER=$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
 
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-
-          SDKMANAGER=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-
-          # Accept all licenses
           yes | $SDKMANAGER --licenses || true
 
-          # Install ONLY exact versions (NO latest)
           $SDKMANAGER \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2" \
             "ndk;25.1.8937393"
 
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-
-      # 6️⃣ CRITICAL: Remove Buildozer cached SDK (removes 36.1)
-      - name: Clear Buildozer Android cache
+      # -------- REMOVE BUILDOZER SDK CACHE --------
+      - name: Clear Buildozer cache
         run: |
-          rm -rf ~/.buildozer/android/platform/android-sdk
+          rm -rf ~/.buildozer
 
-      # 7️⃣ Build APK with Buildozer (FORCE SDK PATH)
-      - name: Build APK with Buildozer
+      # -------- CLEAN BUILD --------
+      - name: Buildozer clean
+        env:
+          ANDROIDSDK: /home/runner/android-sdk
+        run: |
+          buildozer android clean
+
+      # -------- BUILD APK (FORCED SDK) --------
+      - name: Build APK
         env:
           JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+          ANDROIDSDK: /home/runner/android-sdk
           ANDROID_HOME: /home/runner/android-sdk
           ANDROID_SDK_ROOT: /home/runner/android-sdk
         run: |
           buildozer android debug
 
-      # 8️⃣ Debug – list APK
-      - name: List APK output
-        run: |
-          find . -name "*.apk"
-
-      # 9️⃣ Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
