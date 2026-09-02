@@ -27,7 +27,7 @@ class FileChooserPopup(ModalView):
         layout = BoxLayout(orientation='vertical')
         self.chooser = FileChooserIconView()
         btn_layout = BoxLayout(size_hint_y=None, height=50, spacing=10)
-        btn_load = Button(text='Select')
+        btn_load = Button(text='Select Photo')
         btn_cancel = Button(text='Cancel')
 
         btn_load.bind(on_release=self._select)
@@ -52,14 +52,16 @@ class LoanForm(BoxLayout):
         self.image_path = None
         self.image_widget = KivyImage(size_hint_y=None, height=200)
 
+        # Search Bar Header
         search_bar = BoxLayout(size_hint_y=None, height=50, spacing=5, padding=5)
-        self.search_input = TextInput(hint_text="Search by Customer Name", multiline=False)
-        search_btn = Button(text="Search")
+        self.search_input = TextInput(hint_text="Search by Customer Name or Serial #", multiline=False)
+        search_btn = Button(text="Search Records")
         search_btn.bind(on_release=self.search_records)
         search_bar.add_widget(self.search_input)
         search_bar.add_widget(search_btn)
         self.add_widget(search_bar)
 
+        # Scrollable Form Grid
         scroll = ScrollView()
         self.grid = GridLayout(cols=2, padding=10, spacing=10, size_hint_y=None)
         self.grid.bind(minimum_height=self.grid.setter('height'))
@@ -82,21 +84,22 @@ class LoanForm(BoxLayout):
         scroll.add_widget(self.grid)
         self.add_widget(scroll)
 
-        self.add_widget(Label(text="Item Photo Preview:", size_hint_y=None, height=30))
+        # Image Attachment Area
+        self.add_widget(Label(text="Pledged Item Photo Preview:", size_hint_y=None, height=30))
         self.add_widget(self.image_widget)
 
         image_btns = BoxLayout(size_hint_y=None, height=50, spacing=10, padding=10)
-        btn_upload = Button(text="Upload Photo")
+        btn_upload = Button(text="Upload Item Photo")
         btn_upload.bind(on_release=self.open_file_chooser)
         image_btns.add_widget(btn_upload)
-
         self.add_widget(image_btns)
 
+        # Action Buttons Layout
         button_layout = BoxLayout(size_hint_y=None, height=50, spacing=10, padding=10)
         btn_calc = Button(text="Calculate Interest")
         btn_clear = Button(text="Clear Form")
-        btn_submit = Button(text="Submit")
-        btn_view = Button(text="View Records")
+        btn_submit = Button(text="Submit Record")
+        btn_view = Button(text="View All Records")
 
         btn_calc.bind(on_release=self.calculate_interest)
         btn_clear.bind(on_release=self.clear_form)
@@ -117,15 +120,24 @@ class LoanForm(BoxLayout):
             if idx + 1 < len(children):
                 children[idx + 1].focus = True
 
-    def calculate_interest(self, instance):
+    def calculate_interest(self, instance=None):
         try:
-            amount = float(self.inputs["Amount"].text)
-            rate = float(self.inputs["Rate (in ₹)"].text)
-            start_date = datetime.datetime.strptime(self.inputs["Date (DD-MM-YYYY)"].text, "%d-%m-%Y")
-            end_date = datetime.datetime.strptime(self.inputs["Closing Date"].text, "%d-%m-%Y")
+            amount_str = self.inputs["Amount"].text.strip()
+            rate_str = self.inputs["Rate (in ₹)"].text.strip()
+            date_str = self.inputs["Date (DD-MM-YYYY)"].text.strip()
+            closing_str = self.inputs["Closing Date"].text.strip()
+
+            if not (amount_str and rate_str and date_str and closing_str):
+                self.show_popup("Input Error", "Please fill Amount, Rate, Date, and Closing Date.")
+                return False
+
+            amount = float(amount_str)
+            rate = float(rate_str)
+            start_date = datetime.datetime.strptime(date_str, "%d-%m-%Y")
+            end_date = datetime.datetime.strptime(closing_str, "%d-%m-%Y")
 
             delta = end_date - start_date
-            days = delta.days
+            days = max(0, delta.days)
             years = days // 365
             months = (days % 365) // 30
             rem_days = (days % 365) % 30
@@ -138,18 +150,30 @@ class LoanForm(BoxLayout):
             self.inputs["Duration"].text = duration
             self.inputs["Interest Amount"].text = str(interest)
             self.inputs["Closing Amount"].text = str(closing)
+            return True
 
+        except ValueError as ve:
+            self.show_popup("Format Error", f"Check dates (DD-MM-YYYY) or numbers: {str(ve)}")
+            return False
         except Exception as e:
             self.show_popup("Error", f"Could not calculate interest: {str(e)}")
+            return False
 
-    def clear_form(self, instance):
+    def clear_form(self, instance=None):
         for input_field in self.inputs.values():
             input_field.text = ""
         self.image_widget.source = ""
+        self.image_path = None
 
     def submit_form(self, instance):
+        if not self.inputs["Interest Amount"].text.strip():
+            success = self.calculate_interest()
+            if not success:
+                return
+
         data = {field: self.inputs[field].text for field in self.fields}
         data['Image Path'] = self.image_path or ""
+        data['Status'] = "Active"
         self.save_record(data)
         self.show_popup("Form Submitted", f"Saved: {data['Customer Name']} - ₹{data['Amount']}")
 
@@ -165,7 +189,7 @@ class LoanForm(BoxLayout):
         with open(DB_FILE, 'w') as f:
             json.dump(records, f, indent=2)
 
-    def view_records(self, instance):
+    def view_records(self, instance=None):
         self._show_records()
 
     def search_records(self, instance):
@@ -174,14 +198,14 @@ class LoanForm(BoxLayout):
 
     def _show_records(self, search_query=None):
         if not os.path.exists(DB_FILE):
-            self.show_popup("No Records", "No previous records found.")
+            self.show_popup("No Records", "No previous records found in loan_entries.json.")
             return
 
         with open(DB_FILE, 'r') as f:
             try:
                 records = json.load(f)
             except json.JSONDecodeError:
-                self.show_popup("Error", "Could not read records.")
+                self.show_popup("Error", "Could not read loan_entries.json.")
                 return
 
         layout = BoxLayout(orientation='vertical', spacing=5)
@@ -191,13 +215,13 @@ class LoanForm(BoxLayout):
 
         filtered = records
         if search_query:
-            filtered = [r for r in records if search_query in r.get("Customer Name", "").lower()]
+            filtered = [r for r in records if search_query in r.get("Customer Name", "").lower() or search_query in r.get("Serial Number", "").lower()]
 
         if not filtered:
             inner.add_widget(Label(text="No matching records found."))
         else:
-            for entry in filtered[-10:]:
-                line = f"{entry['Serial Number']}: {entry['Customer Name']} - ₹{entry['Amount']} on {entry['Date (DD-MM-YYYY)']}"
+            for entry in reversed(filtered[-10:]):
+                line = f"#{entry.get('Serial Number', '-')}: {entry.get('Customer Name', '-')} - ₹{entry.get('Amount', '0')} ({entry.get('Item', '-')})"
                 inner.add_widget(Label(text=line, size_hint_y=None, height=40))
 
         scroll.add_widget(inner)

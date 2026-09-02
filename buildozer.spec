@@ -1,65 +1,58 @@
-name: Build Android APK
+[app]
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+# (str) Title of your application
+title = Varna Banker
 
-jobs:
-  build:
-    runs-on: ubuntu-24.04  # Using a standard Ubuntu runner
+# (str) Package name
+package.name = varnabanker
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+# (str) Package domain (needed for android/ios packaging)
+package.domain = org.varnabanker
 
-      # 1. Setup Python
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+# (str) Source code where the main.py lives
+source.dir = .
 
-      # 2. Install System Dependencies required by Kivy/Buildozer
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            git \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libffi-dev \
-            libssl-dev \
-            autoconf \
-            libtool \
-            openjdk-17-jdk \
-            zip \
-            unzip
+# (list) Source files to include (let empty to include all the files)
+source.include_exts = py,png,jpg,kv,atlas,json
 
-      # 3. Install Buildozer and Cython
-      - name: Install Buildozer
-        run: |
-          pip install --upgrade pip
-          pip install buildozer cython
+# (str) Application versioning (method 1)
+version = 1.0.0
 
-      # 4. Run Buildozer
-      # We pipe "y" just in case, though accept_sdk_license in spec should handle it
-      - name: Build with Buildozer
-        run: |
-          yes | buildozer android debug
+# (list) Application requirements
+# comma separated e.g. requirements = sqlite3,kivy
+requirements = python3,kivy
 
-      # 5. Upload the resulting APK
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: varna-banker-apk
-          path: bin/*.apk
+# (str) Custom source folders for requirements
+# comma separated e.g. requirements.source.kivy = ../kivy
+
+# (list) Permissions
+android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, INTERNET, CAMERA
+
+# (int) Target Android API, should be as high as possible.
+android.api = 33
+
+# (int) Minimum API your APK / AAB will support.
+android.minapi = 21
+
+# (str) Android NDK version to use
+android.ndk = 25b
+
+# (bool) Use --private data storage (true) or --dir public storage (false)
+android.private_storage = True
+
+# (str) Android logcat filters to use
+android.logcat_filters = *:S python:D
+
+# (bool) Copy library instead of making a libpymodules.so
+android.copy_libs = 1
+
+# (str) The Android arch to build for
+android.archs = arm64-v8a, armeabi-v7a
+
+[buildozer]
+
+# (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
+log_level = 2
+
+# (int) Display warning if buildozer is run as root (0 = error, 1 = warning)
+warn_on_root = 1
