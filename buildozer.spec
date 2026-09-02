@@ -19,7 +19,7 @@ source.include_exts = py,png,jpg,kv,atlas,json
 version = 1.0.0
 
 # (list) Application requirements
-requirements = python3,kivy
+requirements = python3,kivy==2.3.0
 
 # (list) Permissions
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, INTERNET, CAMERA
@@ -30,8 +30,8 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# (str) Android NDK version to use
-android.ndk = 25b
+# (int) Android NDK API level
+android.ndk_api = 21
 
 # (bool) Automatically accept Android SDK licenses
 android.accept_sdk_license = True
@@ -45,7 +45,7 @@ android.logcat_filters = *:S python:D
 # (bool) Copy library instead of making a libpymodules.so
 android.copy_libs = 1
 
-# (str) The Android arch to build for (arm64-v8a for modern devices)
+# (str) The Android arch to build for
 android.archs = arm64-v8a
 
 [buildozer]
