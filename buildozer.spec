@@ -30,8 +30,8 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# (int) Android NDK API level
-android.ndk_api = 21
+# (int) Android NDK API level (comment out to auto-detect for API 33)
+# android.ndk_api = 21
 
 # (bool) Automatically accept Android SDK licenses
 android.accept_sdk_license = True
